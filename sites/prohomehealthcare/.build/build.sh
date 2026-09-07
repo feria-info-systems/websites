@@ -15,8 +15,9 @@ perl -0777 -pe '
   s{url\((["\x27]?)/web/static/lib/odoo_ui_icons/fonts/odoo_ui_icons\.woff\1\)}{url(../fonts/odoo_ui_icons.woff)}g;
   s{url\((["\x27]?)[^)"\x27]*fontawesome-webfont\.woff2[^)"\x27]*\1\)}{url(../fonts/fontawesome-webfont.woff2)}g;
   s{url\((["\x27]?)[^)"\x27]*fontawesome-webfont\.woff[^)"\x27]*\1\)}{url(../fonts/fontawesome-webfont.woff)}g;
-  # any remaining root-relative url(/...) -> absolute to Odoo host (unused decorative shapes; safe fallback)
-  s{url\((["\x27]?)/(?!/)}{url($1'"$HOST"'/}g;
+  # any remaining root-relative url(/...) are unused Odoo decorative shapes; leave
+  # them root-relative (they 404 harmlessly on the static host) so NOTHING points
+  # back at Odoo. Fonts above are already localized.
 ' assets/css/frontend.css > "$OUT/assets/css/frontend.css"
 
 # ---- Build authoritative id->local map from the downloaded images ----
@@ -86,10 +87,22 @@ transform_page () {
     $html =~ s{<script[^>]*web\.assets_frontend_minimal[^>]*>.*?</script>}{}gs;
     $html =~ s{<script[^>]*social_push_notifications[^>]*>.*?</script>}{}gs;
     $html =~ s{<script[^>]*firebase[^>]*>.*?</script>}{}gs;
+    # Odoo session-info blob (no id) — carries translationURL / websocket / geoip
+    $html =~ s{<script\b[^>]*>\s*odoo\.__session_info__.*?</script>}{}gs;
 
     # --- remove Odoo "Powered by" promo anchors ---
     $html =~ s{<a\b[^>]*odoo\.com[^>]*>.*?</a>}{}gs;
     $html =~ s{Powered by\s*(?=<)}{}g;
+    # drop the Odoo fingerprint + editor-only metadata (data-original-* holds
+    # /web/image originals the browser never fetches)
+    $html =~ s{<meta[^>]*name="generator"[^>]*>}{}gi;
+    $html =~ s{\s+data-original-(?:src|id|mimetype)="[^"]*"}{}g;
+    # fix og:image/twitter:image absolute logo URL broken by the logo rewrite
+    # (https://…comassets/… -> https://…com/assets/…)
+    $html =~ s{\.comassets/}{.com/assets/}g;
+    # broken source links + Odoo form/search endpoints (forms.js handles submit)
+    $html =~ s{href="https://j"}{href="#"}g;
+    $html =~ s{action="/website/form/?"}{action="#"}g;
 
     # --- inject: neutralise scroll-animation invisibility + local nav JS ---
     $html =~ s{</head>}{<style>.o_animate{opacity:1!important;transform:none!important;animation:none!important}.navbar .top_menu.o_menu_loading{opacity:1!important;overflow:visible!important}</style></head>}s;
@@ -138,11 +151,11 @@ RD
 # fetches them. Removes multi-MB PNG originals behind the served webp. ----
 for f in "$OUT"/assets/img/*; do
   b=$(basename "$f")
-  if grep -rqF "assets/img/$b\"" "$OUT"/*.html \
-     && grep -rqE "(src=\"assets/img/$b\"|srcset=\"[^\"]*assets/img/$b[ \",]|url\(&#34;?assets/img/$b)" "$OUT"/*.html; then
-    :  # genuinely displayed — keep
-  elif grep -rqF "data-original-src=\"assets/img/$b\"" "$OUT"/*.html; then
-    echo "prune editor-original: $b ($(( $(wc -c < "$f") / 1024 )) KB)"; rm -f "$f"
+  case "$b" in logo.png|favicon.ico) continue;; esac
+  if grep -rqE "([[:space:]]src=\"assets/img/$b\"|srcset=\"[^\"]*assets/img/$b[ \",]|url\(&#34;?assets/img/$b|/assets/img/$b)" "$OUT"/*.html; then
+    :  # referenced/displayed — keep
+  else
+    echo "prune unreferenced: $b ($(( $(wc -c < "$f") / 1024 )) KB)"; rm -f "$f"
   fi
 done
 

@@ -15,7 +15,8 @@ perl -0777 -pe '
   s{url\((["\x27]?)/web/static/lib/odoo_ui_icons/fonts/odoo_ui_icons\.woff\1\)}{url(../fonts/odoo_ui_icons.woff)}g;
   s{url\((["\x27]?)[^)"\x27]*fontawesome-webfont\.woff2[^)"\x27]*\1\)}{url(../fonts/fontawesome-webfont.woff2)}g;
   s{url\((["\x27]?)[^)"\x27]*fontawesome-webfont\.woff[^)"\x27]*\1\)}{url(../fonts/fontawesome-webfont.woff)}g;
-  s{url\((["\x27]?)/(?!/)}{url($1'"$HOST"'/}g;
+  # unused Odoo decorative-shape url(/...) stay root-relative (404 harmlessly on the
+  # static host) so nothing points back at Odoo; fonts above are already localized.
 ' assets/css/frontend.css > "$OUT/assets/css/frontend.css"
 
 : > idmap.tsv
@@ -45,9 +46,10 @@ transform_page () {
     $html =~ s{href="/services"}{href="services.html"}g;
     $html =~ s{href="/"}{href="index.html"}g;
     $html =~ s{action="/website/search"}{action="index.html"}g;
-    # helpdesk portal + cart stay on Odoo (dynamic, not migrated)
-    $html =~ s{href="/helpdesk"}{href="'"$HOST"'/helpdesk"}g;
-    $html =~ s{href="/shop/cart"}{href="'"$HOST"'/shop/cart"}g;
+    # OFF ODOO: Help -> the ERP customer portal (portal.<domain>, repointed to the
+    # ERP in DNS); the spurious Odoo shop-cart chrome is removed (no store here).
+    $html =~ s{href="/helpdesk"}{href="https://portal.proconnectnow.com/"}g;
+    $html =~ s{href="/shop/cart"}{href="#"}g;
 
     # socials: only facebook configured; others neutralised
     $html =~ s{/website/social/facebook}{https://www.facebook.com/share/1GkVRKgr6C/}g;
@@ -60,8 +62,14 @@ transform_page () {
     $html =~ s{<script[^>]*web\.assets_frontend_minimal[^>]*>.*?</script>}{}gs;
     $html =~ s{<script[^>]*social_push_notifications[^>]*>.*?</script>}{}gs;
     $html =~ s{<script[^>]*firebase[^>]*>.*?</script>}{}gs;
+    $html =~ s{<script\b[^>]*>\s*odoo\.__session_info__.*?</script>}{}gs;
     $html =~ s{<a\b[^>]*odoo\.com[^>]*>.*?</a>}{}gs;
     $html =~ s{Powered by\s*(?=<)}{}g;
+    $html =~ s{<meta[^>]*name="generator"[^>]*>}{}gi;
+    $html =~ s{\s+data-original-(?:src|id|mimetype)="[^"]*"}{}g;
+    $html =~ s{\.comassets/}{.com/assets/}g;
+    $html =~ s{href="https://j"}{href="#"}g;
+    $html =~ s{action="/website/form/?"}{action="#"}g;
 
     $html =~ s{</head>}{<style>.o_animate{opacity:1!important;transform:none!important;animation:none!important}.navbar .top_menu.o_menu_loading{opacity:1!important;overflow:visible!important}</style></head>}s;
     $html =~ s{</body>}{<script src="assets/site.js" defer></script><script src="assets/forms.js" defer></script></body>}s;
@@ -92,9 +100,9 @@ printf '/services\t/\t301\n' > "$OUT/_redirects"
 # Prune Odoo editor "original" images (referenced only via data-original-src).
 for f in "$OUT"/assets/img/*; do
   b=$(basename "$f")
-  if grep -rqF "assets/img/$b\"" "$OUT"/*.html \
-     && grep -rqE "([[:space:]]src=\"assets/img/$b\"|srcset=\"[^\"]*assets/img/$b[ \",]|url\(&#34;?assets/img/$b)" "$OUT"/*.html; then :
-  elif grep -rqF "data-original-src=\"assets/img/$b\"" "$OUT"/*.html; then rm -f "$f"; fi
+  case "$b" in logo.png|favicon.ico) continue;; esac
+  if grep -rqE "([[:space:]]src=\"assets/img/$b\"|srcset=\"[^\"]*assets/img/$b[ \",]|url\(&#34;?assets/img/$b|/assets/img/$b)" "$OUT"/*.html; then :
+  else rm -f "$f"; fi
 done
 
 echo "=== pages ==="; ls "$OUT"/*.html | xargs -n1 basename
