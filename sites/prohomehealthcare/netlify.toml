@@ -1,0 +1,18 @@
+# Netlify config for the prohomehealthcare.com static site.
+# In the Netlify UI, set this site's "Base directory" to: sites/prohomehealthcare
+# (so this file is picked up). The site is pre-built static HTML — no build step.
+[build]
+  publish = "public"
+  command = "echo 'static site — nothing to build'"
+
+# Security / caching headers
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

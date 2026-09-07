@@ -1,0 +1,8 @@
+# OS / editor
+Thumbs.db
+.DS_Store
+*.swp
+
+# Node (in case any site later adds tooling)
+node_modules/
+.netlify/
