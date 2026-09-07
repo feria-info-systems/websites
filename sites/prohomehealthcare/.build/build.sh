@@ -6,6 +6,7 @@ OUT=site
 HOST='https://www.prohomehealthcare.com'
 rm -rf "$OUT"; mkdir -p "$OUT/assets"
 cp -r assets/css assets/img assets/fonts assets/shape "$OUT/assets/"
+cp assets/forms.js "$OUT/assets/forms.js"
 
 # ---- Transform the CSS bundle: localize fonts, absolutize other root-relative urls ----
 perl -0777 -pe '
@@ -51,6 +52,10 @@ transform_page () {
     $html =~ s{/html_editor/shape/html_builder/Bold/26\.svg[^"\x27()>,& ]*}{assets/shape/bold-26.svg}g;
 
     # --- internal nav links -> local files ---
+    $html =~ s{href="/jobs/apply/nurse-assistance-25"}{href="apply-nurse-assistance-25.html"}g;
+    $html =~ s{href="/jobs/apply/live-in-nurse-24"}{href="apply-live-in-nurse-24.html"}g;
+    $html =~ s{href="/jobs/detail/nurse-assistance-25"}{href="job-nurse-assistance-25.html"}g;
+    $html =~ s{href="/jobs/detail/live-in-nurse-24"}{href="job-live-in-nurse-24.html"}g;
     $html =~ s{href="/jobs/nurse-assistance-25"}{href="job-nurse-assistance-25.html"}g;
     $html =~ s{href="/jobs/live-in-nurse-24"}{href="job-live-in-nurse-24.html"}g;
     $html =~ s{href="/home-1"}{href="index.html"}g;
@@ -88,7 +93,7 @@ transform_page () {
 
     # --- inject: neutralise scroll-animation invisibility + local nav JS ---
     $html =~ s{</head>}{<style>.o_animate{opacity:1!important;transform:none!important;animation:none!important}.navbar .top_menu.o_menu_loading{opacity:1!important;overflow:visible!important}</style></head>}s;
-    $html =~ s{</body>}{<script src="assets/site.js" defer></script></body>}s;
+    $html =~ s{</body>}{<script src="assets/site.js" defer></script><script src="assets/forms.js" defer></script></body>}s;
 
     print $html;
   ' idmap.tsv < "$infile" > "$outfile"
@@ -100,6 +105,8 @@ transform_page "$SRC/forms.html"    "$OUT/forms.html"
 transform_page "$SRC/jobs.html"     "$OUT/jobs.html"
 transform_page "$SRC/job-nurse-assistance-25.html" "$OUT/job-nurse-assistance-25.html"
 transform_page "$SRC/job-live-in-nurse-24.html"    "$OUT/job-live-in-nurse-24.html"
+transform_page "$SRC/apply-nurse-assistance-25.html" "$OUT/apply-nurse-assistance-25.html"
+transform_page "$SRC/apply-live-in-nurse-24.html"    "$OUT/apply-live-in-nurse-24.html"
 
 # ---- tiny runtime: mobile navbar toggle (Bootstrap-less) ----
 cat > "$OUT/assets/site.js" <<'JS'
