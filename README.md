@@ -31,7 +31,9 @@ powershell -ExecutionPolicy Bypass -File serve.ps1 -Port 8791 -Root ../public
 
 | Site | Status | Notes |
 |------|--------|-------|
-| prohomehealthcare.com | Static mirror built & verified; forms wired to ERP; **not yet cut over** | Forms POST to the `website-intake` ERP edge function (FIS-erp PR #215). `portal.` + Sign in stay on Odoo. DNS still points at Odoo. Needs: push this repo → GitHub, create Netlify site, apply PR #215, cut over DNS. |
+| prohomehealthcare.com | Mirror built & verified; forms wired to ERP; Netlify site created (`jazzy-palmier-4e9038`) but **not published yet** | Forms → `website-intake` (FIS-erp PR #215). `portal.` + Sign in stay on Odoo. Finish: connect this repo in Netlify (base `sites/prohomehealthcare`, publish `public`) for auto-deploy, then DNS cutover. |
+| proconnectnow.com | Mirror built & verified; forms wired to ERP; **no Netlify site yet** | home/services + contact(=Join our team)/request-an-estimate. Forms → `website-intake` (site map updated in PR #215). `/helpdesk` + `/shop/cart` stay on Odoo. Needs its own Netlify site (base `sites/proconnectnow`) + DNS. |
+| 8stonestile.com | **Deferred** (owner decision) | Has an e-commerce `/shop` (cart/checkout) that a static host can't replace — needs a commerce plan before migrating. |
 
 ### Dynamic features that do NOT run on the static host
 - **Contact form** (`/forms`) and **job applications** (`/jobs/apply/...`) → POST to the
