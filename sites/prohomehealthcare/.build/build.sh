@@ -133,6 +133,19 @@ cat > "$OUT/_redirects" <<'RD'
 /home-1    /    301
 RD
 
+# ---- Prune Odoo editor "original" images: files referenced ONLY via
+# data-original-src (never by a real src/srcset/url()), so the browser never
+# fetches them. Removes multi-MB PNG originals behind the served webp. ----
+for f in "$OUT"/assets/img/*; do
+  b=$(basename "$f")
+  if grep -rqF "assets/img/$b\"" "$OUT"/*.html \
+     && grep -rqE "(src=\"assets/img/$b\"|srcset=\"[^\"]*assets/img/$b[ \",]|url\(&#34;?assets/img/$b)" "$OUT"/*.html; then
+    :  # genuinely displayed — keep
+  elif grep -rqF "data-original-src=\"assets/img/$b\"" "$OUT"/*.html; then
+    echo "prune editor-original: $b ($(( $(wc -c < "$f") / 1024 )) KB)"; rm -f "$f"
+  fi
+done
+
 echo "=== built site tree ==="
 find "$OUT" -maxdepth 2 -type f | sort
 echo "=== sanity: leftover Odoo asset refs in HTML (should be minimal) ==="
