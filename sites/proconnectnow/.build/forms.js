@@ -1,26 +1,48 @@
 /* forms.js — wire the (migrated) Odoo website forms to the ERP intake function.
  * Replaces Odoo's form runtime: intercepts the `.s_website_form_send` trigger,
  * builds a normalized multipart payload, POSTs to the website-intake edge
- * function, and shows an inline success / error message. No dependencies. */
+ * function, and shows an inline success / error message. No dependencies.
+ *
+ * Field mapping targets the ERP's convert-worthy columns (see
+ * website-submissions convertSubmission): a `contact` becomes a CRM lead
+ * (title=subject, contact_name/email/phone, notes=message+location+extras); a
+ * `job_application` becomes a recruitment applicant (name/email/phone,
+ * notes="Applied for: <job_ref>"+message+extras). Everything unmapped is folded
+ * into `extra.<label>` so nothing is lost. */
 (function () {
   "use strict";
   var FN_URL = "https://uradcwdwxsokqgdpeinq.supabase.co/functions/v1/website-intake";
-  var SITE = (location.hostname || "prohomehealthcare.com").replace(/^www\./, "");
-  if (/^(localhost|127\.|\[?::1)/.test(SITE)) SITE = "prohomehealthcare.com"; // local preview
+  var WHATSAPP = "+233 55 667 2249";
+  var SITE = (location.hostname || "proconnectnow.com").replace(/^www\./, "");
+  if (/^(localhost|127\.|\[?::1)/.test(SITE)) SITE = "proconnectnow.com"; // local preview
 
   // Odoo internal / structural fields we never forward.
   var SKIP = new Set(["search", "order", "csrf_token", "team_id", "job_id",
     "department_id", "email_to", "email_cc", "website_form_signature",
     "record_id", "id", "company_website"]);
-  // Odoo field name -> normalized key.
-  var MAP = {
-    name: "name", partner_name: "name",
-    partner_phone: "phone", phone: "phone",
-    email_from: "email", email: "email",
-    description: "message",
-    "SERVICE NEEDED": "subject",
-    LOCATION: "location", x_studio_location: "location",
-  };
+
+  // Resolve an Odoo field to a canonical intake key, else null (-> extra.<label>).
+  // The `name` field is ambiguous in Odoo: helpdesk.ticket uses it for the
+  // SUBJECT (with `partner_name` holding the contact), while some contact forms
+  // use it for the contact NAME. So `name` -> subject only when a `partner_name`
+  // field is also present; otherwise `name` -> name.
+  function canonicalKey(el, nm, hasPartnerName) {
+    var low = nm.toLowerCase();
+    switch (nm) {
+      case "partner_name": return "name";
+      case "name": return hasPartnerName ? "subject" : "name";
+      case "partner_phone": return "phone";
+      case "email_from": return "email";
+      case "description": return "message";
+      case "x_studio_location": return "location";
+    }
+    if (low === "phone") return "phone";
+    if (low === "email") return "email";
+    if (low === "location") return "location";
+    if (low === "service needed" || low === "subject") return "subject";
+    if (el.tagName === "TEXTAREA") return "message"; // the main free-text answer
+    return null;
+  }
 
   function clean(s) { return s.replace(/\s+/g, " ").replace(/\s*\*\s*$/, "").trim(); }
   function labelFor(el, form) {
@@ -72,6 +94,7 @@
   function buildPayload(form) {
     var model = form.getAttribute("data-model_name") || "";
     var kind = model === "hr.applicant" ? "job_application" : "contact";
+    var hasPartnerName = !!form.querySelector('[name="partner_name"]');
     var fd = new FormData();
     fd.append("kind", kind);
     fd.append("site", SITE);
@@ -89,11 +112,9 @@
       if (el.type === "radio" && !el.checked) return;
       var val = String(fieldValue(el) || "").trim();
       if (!val) return;
-      if (MAP[nm]) {
-        if (!seen[MAP[nm]]) { fd.append(MAP[nm], val); seen[MAP[nm]] = 1; }
-      } else {
-        fd.append("extra." + labelFor(el, form), val);
-      }
+      var key = canonicalKey(el, nm, hasPartnerName);
+      if (key && !seen[key]) { fd.append(key, val); seen[key] = 1; }
+      else { fd.append("extra." + labelFor(el, form), val); } // unmapped or duplicate -> keep in payload
     });
 
     if (kind === "job_application") {
@@ -126,19 +147,19 @@
             var ref = res.j.number ? " (ref " + res.j.number + ")" : "";
             showMessage(form, true,
               "Thank you — we’ve received your submission" + ref +
-              ". Our team will be in touch shortly. For anything urgent, call or WhatsApp +233 559 055 256.");
+              ". Our team will be in touch shortly. For anything urgent, call or WhatsApp " + WHATSAPP + ".");
           } else {
             busy = false;
             if (trigger) { trigger.style.pointerEvents = ""; trigger.style.opacity = ""; }
             showMessage(form, false,
               (res.j && res.j.error ? "Could not submit: " + res.j.error : "Sorry, something went wrong.") +
-              " Please try again, or call/WhatsApp +233 559 055 256.");
+              " Please try again, or call/WhatsApp " + WHATSAPP + ".");
           }
         })
         .catch(function () {
           busy = false;
           if (trigger) { trigger.style.pointerEvents = ""; trigger.style.opacity = ""; }
-          showMessage(form, false, "Network error — please try again, or call/WhatsApp +233 559 055 256.");
+          showMessage(form, false, "Network error — please try again, or call/WhatsApp " + WHATSAPP + ".");
         });
     }
     if (trigger) trigger.addEventListener("click", submit);
