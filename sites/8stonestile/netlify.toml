@@ -1,0 +1,18 @@
+# Netlify config for the 8stonestile.com static storefront.
+# Base directory: sites/8stonestile ; publish: public ; no build step.
+[build]
+  publish = "public"
+  command = "echo 'static site — nothing to build'"
+
+# Fixed-name assets (styles.css / forms.js) must revalidate, so updates ship
+# (learned the hard way: immutable froze forms.js on the marketing sites).
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

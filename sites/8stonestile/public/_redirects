@@ -1,0 +1,6 @@
+/shop/*        /shop.html   301
+/shop          /shop.html   301
+/contactus     /contact.html 301
+/form          /contact.html 301
+/galary        /shop.html   301
+/videos        /index.html  301
