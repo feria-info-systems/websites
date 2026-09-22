@@ -106,7 +106,7 @@ transform_page () {
 
     # --- inject: neutralise scroll-animation invisibility + local nav JS ---
     $html =~ s{</head>}{<style>.o_animate{opacity:1!important;transform:none!important;animation:none!important}.navbar .top_menu.o_menu_loading{opacity:1!important;overflow:visible!important}</style></head>}s;
-    $html =~ s{</body>}{<script src="assets/site.js?v=2" defer></script><script src="assets/forms.js?v=2" defer></script></body>}s;
+    $html =~ s{</body>}{<script src="assets/site.js?v=2" defer></script><script src="assets/forms.js?v=3" defer></script></body>}s;
 
     print $html;
   ' idmap.tsv < "$infile" > "$outfile"

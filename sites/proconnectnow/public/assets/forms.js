@@ -118,8 +118,13 @@
     });
 
     if (kind === "job_application") {
-      var slug = (location.pathname.match(/([^\/]+)\.html$/) || [])[1] || "";
-      fd.append("job_ref", slug.replace(/^apply-/, ""));
+      // Netlify serves CLEAN URLs (no .html): take the last non-empty path
+      // segment, drop a trailing slash and any .html, then strip the leading
+      // "apply-" prefix. Handles /apply-live-in-nurse-24, the same with a
+      // trailing slash, and the legacy /apply-live-in-nurse-24.html.
+      var seg = (location.pathname.replace(/\/+$/, "").split("/").pop() || "")
+        .replace(/\.html$/i, "").replace(/^apply-/, "");
+      fd.append("job_ref", seg);
       var h1 = document.querySelector("h1, .h1");
       if (h1 && !fd.get("subject")) fd.append("subject", h1.textContent.trim().slice(0, 200));
     }
